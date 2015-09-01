@@ -539,7 +539,7 @@ connectionHandler' handle nats pingStatus = forever $ do
             where
                 (item, newq) = case D.popFront queue of
                     Just inq -> inq
-                    Nothing  -> ((\_ -> return ()), D.empty)
+                    Nothing  -> ((\maybeTxt -> maybe (return ()) print maybeTxt), D.empty)
         handleMessage NatsSvrPing = sendMessage nats True NatsClntPong Nothing
         handleMessage NatsSvrPong =
             atomicModifyIORef' pingStatus $
