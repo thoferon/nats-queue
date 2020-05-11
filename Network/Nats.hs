@@ -117,7 +117,7 @@ import qualified Data.Text                  as T
 import           Data.Text.Encoding         (decodeUtf8)
 
 import qualified Data.Aeson                 as AE
-import Data.Aeson ((.:), (.!=))
+import Data.Aeson ((.:), (.:?), (.!=))
 import           Data.Aeson.TH              (defaultOptions, deriveJSON,
                                              fieldLabelModifier)
 
@@ -157,21 +157,13 @@ $(deriveJSON defaultOptions{fieldLabelModifier =
         } ''NatsConnectionOptions)
 
 -- | Server information sent usually upon opening a connection to NATS server
-data NatsServerInfo = NatsServerInfo {
---     natsSvrServerId :: T.Text
---     , natsSvrVersion :: T.Text
---     , natsSvrMaxPayload :: Int
+newtype NatsServerInfo = NatsServerInfo {
       natsSvrAuthRequired :: Bool
     } deriving (Show)
 
-$(deriveJSON defaultOptions{fieldLabelModifier =
-            let insertUnderscore acc chr
-                    | isUpper chr = chr : '_' : acc
-                    | otherwise   = chr : acc
-            in
-                map toLower . drop 1 . reverse . foldl insertUnderscore [] . drop 7
-        } ''NatsServerInfo)
-
+instance AE.FromJSON NatsServerInfo where
+    parseJSON = AE.withObject "NatsServerInfo" $ \obj -> do
+        NatsServerInfo . fromMaybe False <$> obj .:? "auth_required"
 
 newtype NatsSID = NatsSID Int deriving (Num, Ord, Eq)
 instance Show NatsSID where
@@ -327,7 +319,7 @@ connectToServer hostname port = do
     -- Create a socket
     bracketOnError
         (S.socket (S.addrFamily serveraddr) S.Stream S.defaultProtocol)
-        S.sClose
+        S.close
         (\sock -> do
 
             setSocketOption sock KeepAlive 1
